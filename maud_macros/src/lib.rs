@@ -10,6 +10,9 @@ mod escape;
 mod generate;
 mod parse;
 
+#[cfg(feature = "zephyr")]
+mod zephyr;
+
 use proc_macro2::{Ident, Span, TokenStream, TokenTree};
 use proc_macro_error::proc_macro_error;
 use quote::quote;
@@ -24,7 +27,7 @@ pub fn html(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
 #[proc_macro_error]
 pub fn html_debug(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let expr = expand(input.into());
-    println!("expansion:\n{}", expr);
+    println!("expansion:\n{expr}");
     expr.into()
 }
 
@@ -34,11 +37,22 @@ fn expand(input: TokenStream) -> TokenStream {
     // code size of the template itself
     let size_hint = input.to_string().len();
     let markups = parse::parse(input);
+
+    #[cfg(feature = "zephyr")]
+    let zephyr_stmt = zephyr::zephyr(&markups);
     let stmts = generate::generate(markups, output_ident.clone());
+
+    #[cfg(feature = "zephyr")]
+    return quote!({
+        let mut #output_ident = String::with_capacity(#size_hint);
+        #zephyr_stmt
+        #stmts
+        maud::PreEscaped(#output_ident)
+    });
+
+    #[cfg(not(feature = "zephyr"))]
     quote!({
-        extern crate alloc;
-        extern crate maud;
-        let mut #output_ident = alloc::string::String::with_capacity(#size_hint);
+        let mut #output_ident = String::with_capacity(#size_hint);
         #stmts
         maud::PreEscaped(#output_ident)
     })

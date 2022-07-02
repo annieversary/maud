@@ -10,6 +10,11 @@ repository = "https://github.com/lambda-fairy/maud"
 description = "Compile-time HTML templates."
 edition = "2021"
 
+[features]
+default = []
+
+zephyr = []
+
 [dependencies]
 syn = "1.0.8"
 quote = "1.0.7"

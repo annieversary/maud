@@ -1,5 +1,3 @@
-#![no_std]
-
 //! A macro for writing HTML templates.
 //!
 //! This documentation only describes the runtime API. For a general
@@ -9,12 +7,15 @@
 
 #![doc(html_root_url = "https://docs.rs/maud/0.23.0")]
 
-extern crate alloc;
-
-use alloc::{borrow::Cow, boxed::Box, string::String};
-use core::fmt::{self, Arguments, Write};
+use std::{
+    borrow::Cow,
+    fmt::{self, Arguments, Write},
+};
 
 pub use maud_macros::{html, html_debug};
+
+#[cfg(feature = "zephyr")]
+pub use zephyr;
 
 mod escape;
 
@@ -170,8 +171,7 @@ macro_rules! impl_render_with_display {
         $(
             impl Render for $ty {
                 fn render_to(&self, w: &mut String) {
-                    // TODO: remove the explicit arg when Rust 1.58 is released
-                    format_args!("{self}", self = self).render_to(w);
+                    format_args!("{self}").render_to(w);
                 }
             }
         )*

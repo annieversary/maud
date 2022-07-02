@@ -3,7 +3,3 @@ members = [
     "maud_macros",
     "maud",
 ]
-exclude = [
-    "docs",
-    "doctest",
-]

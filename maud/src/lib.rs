@@ -150,6 +150,21 @@ impl<T: Render + ?Sized> Render for Box<T> {
     }
 }
 
+impl<T: Render> Render for Option<T> {
+    fn render_to(&self, w: &mut String) {
+        if let Some(s) = self {
+            T::render_to(s, w);
+        }
+    }
+}
+impl<T: Render> Render for &[T] {
+    fn render_to(&self, w: &mut String) {
+        for s in self.iter() {
+            T::render_to(s, w);
+        }
+    }
+}
+
 macro_rules! impl_render_with_display {
     ($($ty:ty)*) => {
         $(
@@ -209,6 +224,12 @@ impl<T: AsRef<str> + Into<String>> PreEscaped<T> {
 impl<T: AsRef<str> + Into<String>> From<PreEscaped<T>> for String {
     fn from(value: PreEscaped<T>) -> String {
         value.into_string()
+    }
+}
+
+impl<T: AsRef<str>> AsRef<str> for PreEscaped<T> {
+    fn as_ref(&self) -> &str {
+        &self.0.as_ref()
     }
 }
 

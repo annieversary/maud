@@ -3,3 +3,4 @@ target
 docs/site
 doctest/Cargo.lock
 doctest/lib.rs
+.DS_Store

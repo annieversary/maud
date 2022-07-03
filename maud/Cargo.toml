@@ -19,7 +19,7 @@ zephyr = ["maud_macros/zephyr", "dep:zephyr"]
 [dependencies]
 maud_macros = { version = "0.23.0", path = "../maud_macros" }
 itoa = { version = "0.4.8", default-features = false, features = ["i128"] }
-zephyr = { git = "https://github.com/annieversary/zephyr", rev = "d0c0b96eb3fd420dafa5f4e4e25403cca832ba44", features = ["inventory"], optional = true }
+zephyr = { git = "https://github.com/annieversary/zephyr", rev = "63ca79e814dce8db633da121b1547a638d8c4f04", features = ["inventory"], optional = true }
 
 [dev-dependencies]
 trybuild = { version = "1.0.33", features = ["diff"] }

@@ -47,6 +47,7 @@ impl Parser {
 
     /// Returns the next two tokens in the stream without consuming them.
     fn peek2(&mut self) -> Option<(TokenTree, Option<TokenTree>)> {
+        // TODO use something to not peek twice
         let mut clone = self.clone();
         clone.next().map(|first| (first, clone.next()))
     }
@@ -66,6 +67,7 @@ impl Parser {
     fn markups(&mut self) -> Vec<ast::Markup> {
         let mut result = Vec::new();
         loop {
+            // TODO absolute trash dude wtf this clones the whole struct
             match self.peek2() {
                 None => break,
                 Some((TokenTree::Punct(ref punct), _)) if punct.as_char() == ';' => self.advance(),
@@ -119,6 +121,7 @@ impl Parser {
                                 };
                                 abort!(span, "`@let` only works inside a block");
                             }
+                            // TODO add components here
                             other => {
                                 let span = SpanRange {
                                     first: at_span,

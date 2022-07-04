@@ -1,3 +1,4 @@
+use peekaboo::*;
 use proc_macro2::{Delimiter, Ident, Literal, Spacing, Span, TokenStream, TokenTree};
 use proc_macro_error::{abort, abort_call_site, emit_error, SpanRange};
 use std::collections::HashMap;
@@ -14,7 +15,7 @@ pub fn parse(input: TokenStream) -> Vec<ast::Markup> {
 struct Parser {
     /// If we're inside an attribute, then this contains the attribute name.
     current_attr: Option<String>,
-    input: <TokenStream as IntoIterator>::IntoIter,
+    input: Peekable<<TokenStream as IntoIterator>::IntoIter, 2>,
 }
 
 impl Iterator for Parser {
@@ -29,27 +30,28 @@ impl Parser {
     fn new(input: TokenStream) -> Parser {
         Parser {
             current_attr: None,
-            input: input.into_iter(),
+            input: input.into_iter().peekable_n(),
         }
     }
 
     fn with_input(&self, input: TokenStream) -> Parser {
         Parser {
             current_attr: self.current_attr.clone(),
-            input: input.into_iter(),
+            input: input.into_iter().peekable_n(),
         }
     }
 
     /// Returns the next token in the stream without consuming it.
     fn peek(&mut self) -> Option<TokenTree> {
-        self.clone().next()
+        self.input.peek::<1>().map(Clone::clone)
     }
 
     /// Returns the next two tokens in the stream without consuming them.
     fn peek2(&mut self) -> Option<(TokenTree, Option<TokenTree>)> {
-        // TODO use something to not peek twice
-        let mut clone = self.clone();
-        clone.next().map(|first| (first, clone.next()))
+        let peek1 = self.input.peek::<1>().map(Clone::clone);
+        let peek2 = self.input.peek::<2>().map(Clone::clone);
+
+        peek1.map(|first| (first, peek2))
     }
 
     /// Advances the cursor by one step.

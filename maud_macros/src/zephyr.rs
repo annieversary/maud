@@ -44,9 +44,7 @@ fn get_single_or_block_element_attrs(markup: &Markup) -> Vec<&Attr> {
             .flat_map(get_single_or_block_element_attrs)
             .collect::<Vec<_>>(),
         Markup::Element { attrs, body, .. } => {
-            //
             let mut out: Vec<_> = attrs.iter().collect();
-
             if let ElementBody::Block { block } = body {
                 out.extend(
                     block
@@ -58,6 +56,16 @@ fn get_single_or_block_element_attrs(markup: &Markup) -> Vec<&Attr> {
 
             out
         }
+        Markup::Special { segments } => segments
+            .iter()
+            .flat_map(|s| &s.body.markups)
+            .flat_map(get_single_or_block_element_attrs)
+            .collect(),
+        Markup::Match { arms, .. } => arms
+            .iter()
+            .flat_map(|s| &s.body.markups)
+            .flat_map(get_single_or_block_element_attrs)
+            .collect(),
         _ => vec![],
     }
 }

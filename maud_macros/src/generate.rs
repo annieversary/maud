@@ -109,11 +109,12 @@ impl Generator {
     fn element(
         &self,
         name: TokenStream,
-        mut attrs: Vec<Attr>,
+        #[allow(unused_mut)] mut attrs: Vec<Attr>,
         body: ElementBody,
         build: &mut Builder,
     ) {
         // add `rel="noopener noreferrer"` to all `a` tags that don't have a `rel` attribute
+        #[cfg(feature = "a_rel_attribute")]
         if name_to_string(name.clone()).as_str() == "a" {
             let mut has_rel = false;
             for a in &attrs {

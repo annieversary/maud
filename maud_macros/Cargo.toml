@@ -14,6 +14,7 @@ edition = "2021"
 default = []
 
 zephyr = []
+a_rel_attribute = []
 
 [dependencies]
 syn = "1.0.8"

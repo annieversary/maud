@@ -12,9 +12,10 @@ categories = ["template-engine"]
 edition = "2021"
 
 [features]
-default = []
+default = ["a_rel_attribute"]
 
 zephyr = ["maud_macros/zephyr", "dep:zephyr"]
+a_rel_attribute = ["maud_macros/a_rel_attribute"]
 
 [dependencies]
 maud_macros = { version = "0.23.0", path = "../maud_macros" }

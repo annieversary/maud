@@ -1,7 +1,3 @@
-// Make sure `std` is available but the prelude isn't
-#![no_std]
-extern crate std;
-
 use maud::html;
 
 #[test]

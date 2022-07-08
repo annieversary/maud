@@ -160,7 +160,7 @@ fn colons_in_names() {
         result.into_string(),
         concat!(
             r#"<pon-pon:controls-alpha>"#,
-            r#"<a on:click="yay()">Yay!</a>"#,
+            r#"<a on:click="yay()" rel="noopener noreferrer">Yay!</a>"#,
             r#"</pon-pon:controls-alpha>"#
         )
     );

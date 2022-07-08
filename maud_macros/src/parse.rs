@@ -713,17 +713,25 @@ impl Parser {
         } else {
             return None;
         }
-        let mut expect_ident = false;
+        let mut expect_ident_or_num = false;
         loop {
-            expect_ident = match self.peek() {
+            expect_ident_or_num = match self.peek() {
                 Some(TokenTree::Punct(ref punct)) if punct.as_char() == '-' => {
                     self.advance();
                     result.push(TokenTree::Punct(punct.clone()));
                     true
                 }
-                Some(TokenTree::Ident(ref ident)) if expect_ident => {
+                Some(TokenTree::Ident(ref ident)) if expect_ident_or_num => {
                     self.advance();
                     result.push(TokenTree::Ident(ident.clone()));
+                    false
+                }
+                // https://github.com/lambda-fairy/maud/pull/336/files
+                Some(TokenTree::Literal(ref lit))
+                    if expect_ident_or_num && lit.to_string().chars().all(|c| c.is_numeric()) =>
+                {
+                    self.advance();
+                    result.push(TokenTree::Literal(lit.clone()));
                     false
                 }
                 _ => break,

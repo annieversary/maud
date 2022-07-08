@@ -42,14 +42,13 @@ impl Parser {
     }
 
     /// Returns the next token in the stream without consuming it.
-    fn peek(&mut self) -> Option<TokenTree> {
-        self.input.peek::<1>().map(Clone::clone)
+    fn peek(&mut self) -> Option<&TokenTree> {
+        self.input.peek::<1>()
     }
 
     /// Returns the next two tokens in the stream without consuming them.
-    fn peek2(&mut self) -> Option<(TokenTree, Option<TokenTree>)> {
-        let peek1 = self.input.peek::<1>().map(Clone::clone);
-        let peek2 = self.input.peek::<2>().map(Clone::clone);
+    fn peek2(&mut self) -> Option<(&TokenTree, Option<&TokenTree>)> {
+        let [peek1, peek2] = self.input.peek_multiple::<2>();
 
         peek1.map(|first| (first, peek2))
     }
@@ -69,16 +68,16 @@ impl Parser {
     fn markups(&mut self) -> Vec<ast::Markup> {
         let mut result = Vec::new();
         loop {
-            // TODO absolute trash dude wtf this clones the whole struct
             match self.peek2() {
                 None => break,
                 Some((TokenTree::Punct(ref punct), _)) if punct.as_char() == ';' => self.advance(),
-                Some((TokenTree::Punct(ref punct), Some(TokenTree::Ident(ref ident))))
+                Some((TokenTree::Punct(punct), Some(TokenTree::Ident(ident))))
                     if punct.as_char() == '@' && *ident == "let" =>
                 {
-                    self.advance2();
                     let keyword = TokenTree::Ident(ident.clone());
-                    result.push(self.let_expr(punct.span(), keyword));
+                    let span = punct.span();
+                    self.advance2();
+                    result.push(self.let_expr(span, keyword));
                 }
                 _ => result.push(self.markup()),
             }
@@ -97,13 +96,14 @@ impl Parser {
         let markup = match token {
             // Literal
             TokenTree::Literal(literal) => {
+                let literal = literal.clone();
                 self.advance();
                 self.literal(literal)
             }
             // Special form
             TokenTree::Punct(ref punct) if punct.as_char() == '@' => {
-                self.advance();
                 let at_span = punct.span();
+                self.advance();
                 match self.next() {
                     Some(TokenTree::Ident(ident)) => {
                         let keyword = TokenTree::Ident(ident.clone());
@@ -140,7 +140,9 @@ impl Parser {
             }
             // Element
             TokenTree::Ident(ident) => {
+                let ident = ident.clone(); // we could probably skip this clone but i cant be bothered
                 let ident_string = ident.to_string();
+                let span = SpanRange::single_span(ident.span());
                 match ident_string.as_str() {
                     "if" | "while" | "for" | "match" | "let" => {
                         abort!(
@@ -159,9 +161,7 @@ impl Parser {
                                 help = "to toggle the attribute, use square brackets: `{}[some_boolean_flag]`",
                                 attr_name;
                             );
-                            return ast::Markup::ParseError {
-                                span: SpanRange::single_span(ident.span()),
-                            };
+                            return ast::Markup::ParseError { span };
                         }
                     }
                     _ => {}
@@ -179,16 +179,17 @@ impl Parser {
             }
             // Splice
             TokenTree::Group(ref group) if group.delimiter() == Delimiter::Parenthesis => {
+                let expr = group.stream();
+                let outer_span = SpanRange::single_span(group.span());
                 self.advance();
-                ast::Markup::Splice {
-                    expr: group.stream(),
-                    outer_span: SpanRange::single_span(group.span()),
-                }
+                ast::Markup::Splice { expr, outer_span }
             }
             // Block
             TokenTree::Group(ref group) if group.delimiter() == Delimiter::Brace => {
+                let stream = group.stream();
+                let span = SpanRange::single_span(group.span());
                 self.advance();
-                ast::Markup::Block(self.block(group.stream(), SpanRange::single_span(group.span())))
+                ast::Markup::Block(self.block(stream, span))
             }
             // ???
             token => {
@@ -262,14 +263,14 @@ impl Parser {
             Some((TokenTree::Punct(ref punct), Some(TokenTree::Ident(ref else_keyword))))
                 if punct.as_char() == '@' && *else_keyword == "else" =>
             {
-                self.advance2();
                 let at_span = punct.span();
                 let else_keyword = TokenTree::Ident(else_keyword.clone());
+                self.advance2();
                 match self.peek() {
                     // `@else if`
                     Some(TokenTree::Ident(ref if_keyword)) if *if_keyword == "if" => {
-                        self.advance();
                         let if_keyword = TokenTree::Ident(if_keyword.clone());
+                        self.advance();
                         self.if_expr(at_span, vec![else_keyword, if_keyword], segments)
                     }
                     // Just an `@else`
@@ -423,14 +424,14 @@ impl Parser {
                         && gt.as_char() == '>'
                         && eq.spacing() == Spacing::Joint =>
                 {
-                    self.advance2();
                     head.push(TokenTree::Punct(eq.clone()));
                     head.push(TokenTree::Punct(gt.clone()));
+                    self.advance2();
                     break;
                 }
                 Some((token, _)) => {
+                    head.push(token.clone());
                     self.advance();
-                    head.push(token);
                 }
                 None => {
                     if head.is_empty() {
@@ -542,8 +543,9 @@ impl Parser {
                 if punct.as_char() == ';' || punct.as_char() == '/' =>
             {
                 // Void element
-                self.advance();
-                if punct.as_char() == '/' {
+                let c = punct.as_char();
+                let semi_span = SpanRange::single_span(punct.span());
+                if c == '/' {
                     emit_error!(
                         punct,
                         "void elements must use `;`, not `/`";
@@ -551,9 +553,8 @@ impl Parser {
                         help = "see https://github.com/lambda-fairy/maud/pull/315 for details";
                     );
                 }
-                ast::ElementBody::Void {
-                    semi_span: SpanRange::single_span(punct.span()),
-                }
+                self.advance();
+                ast::ElementBody::Void { semi_span }
             }
             Some(_) => match self.markup() {
                 ast::Markup::Block(block) => ast::ElementBody::Block { block },
@@ -622,23 +623,22 @@ impl Parser {
                 match self.peek() {
                     // Class shorthand
                     Some(TokenTree::Punct(ref punct)) if punct.as_char() == '.' => {
+                        let dot_span = SpanRange::single_span(punct.span());
                         self.advance();
                         let name = self.class_or_id_name();
                         let toggler = self.attr_toggler();
                         attrs.push(ast::Attr::Class {
-                            dot_span: SpanRange::single_span(punct.span()),
+                            dot_span,
                             name,
                             toggler,
                         });
                     }
                     // ID shorthand
-                    Some(TokenTree::Punct(ref punct)) if punct.as_char() == '#' => {
+                    Some(TokenTree::Punct(punct)) if punct.as_char() == '#' => {
+                        let hash_span = SpanRange::single_span(punct.span());
                         self.advance();
                         let name = self.class_or_id_name();
-                        attrs.push(ast::Attr::Id {
-                            hash_span: SpanRange::single_span(punct.span()),
-                            name,
-                        });
+                        attrs.push(ast::Attr::Id { hash_span, name });
                     }
                     // If it's not a valid attribute, backtrack and bail out
                     _ => break,
@@ -693,12 +693,11 @@ impl Parser {
     /// Parses the `[cond]` syntax after an empty attribute or class shorthand.
     fn attr_toggler(&mut self) -> Option<ast::Toggler> {
         match self.peek() {
-            Some(TokenTree::Group(ref group)) if group.delimiter() == Delimiter::Bracket => {
+            Some(TokenTree::Group(group)) if group.delimiter() == Delimiter::Bracket => {
+                let cond = group.stream();
+                let cond_span = SpanRange::single_span(group.span());
                 self.advance();
-                Some(ast::Toggler {
-                    cond: group.stream(),
-                    cond_span: SpanRange::single_span(group.span()),
-                })
+                Some(ast::Toggler { cond, cond_span })
             }
             _ => None,
         }
@@ -708,8 +707,8 @@ impl Parser {
     fn try_name(&mut self) -> Option<TokenStream> {
         let mut result = Vec::new();
         if let Some(token @ TokenTree::Ident(_)) = self.peek() {
+            result.push(token.clone());
             self.advance();
-            result.push(token);
         } else {
             return None;
         }
@@ -717,21 +716,21 @@ impl Parser {
         loop {
             expect_ident_or_num = match self.peek() {
                 Some(TokenTree::Punct(ref punct)) if punct.as_char() == '-' => {
-                    self.advance();
                     result.push(TokenTree::Punct(punct.clone()));
+                    self.advance();
                     true
                 }
                 Some(TokenTree::Ident(ref ident)) if expect_ident_or_num => {
-                    self.advance();
                     result.push(TokenTree::Ident(ident.clone()));
+                    self.advance();
                     false
                 }
                 // https://github.com/lambda-fairy/maud/pull/336/files
                 Some(TokenTree::Literal(ref lit))
                     if expect_ident_or_num && lit.to_string().chars().all(|c| c.is_numeric()) =>
                 {
-                    self.advance();
                     result.push(TokenTree::Literal(lit.clone()));
+                    self.advance();
                     false
                 }
                 _ => break,
@@ -746,8 +745,9 @@ impl Parser {
         let mut result = vec![self.try_name()?];
         if let Some(TokenTree::Punct(ref punct)) = self.peek() {
             if punct.as_char() == ':' {
+                let punct = punct.clone();
                 self.advance();
-                result.push(TokenStream::from(TokenTree::Punct(punct.clone())));
+                result.push(TokenStream::from(TokenTree::Punct(punct)));
                 result.push(self.try_name()?);
             }
         }

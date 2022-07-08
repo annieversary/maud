@@ -106,7 +106,48 @@ impl Generator {
         build.push_tokens(quote!(maud::Render::render_to(&#expr, &mut #output_ident);));
     }
 
-    fn element(&self, name: TokenStream, attrs: Vec<Attr>, body: ElementBody, build: &mut Builder) {
+    fn element(
+        &self,
+        name: TokenStream,
+        mut attrs: Vec<Attr>,
+        body: ElementBody,
+        build: &mut Builder,
+    ) {
+        // add `rel="noopener noreferrer"` to all `a` tags that don't have a `rel` attribute
+        if name_to_string(name.clone()).as_str() == "a" {
+            let mut has_rel = false;
+            for a in &attrs {
+                if let Attr::Named {
+                    named_attr: NamedAttr { name, .. },
+                } = a
+                {
+                    if name_to_string(name.clone()).as_str() == "rel" {
+                        has_rel = true;
+                    }
+                }
+            }
+
+            if !has_rel {
+                // this is not accurate at all, but i do not give a shit
+                let span = match &body {
+                    ElementBody::Void { semi_span } => semi_span.clone(),
+                    ElementBody::Block { block } => block.outer_span,
+                };
+
+                attrs.push(Attr::Named {
+                    named_attr: NamedAttr {
+                        name: quote!(rel),
+                        attr_type: AttrType::Normal {
+                            value: Markup::Literal {
+                                content: "noopener noreferrer".into(),
+                                span,
+                            },
+                        },
+                    },
+                });
+            }
+        }
+
         build.push_str("<");
         self.name(name.clone(), build);
         self.attrs(attrs, build);

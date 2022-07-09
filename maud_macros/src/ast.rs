@@ -37,6 +37,12 @@ pub enum Markup {
         arms: Vec<MatchArm>,
         arms_span: SpanRange,
     },
+    Custom {
+        at_span: SpanRange,
+        name: TokenStream,
+        expr: TokenStream,
+        body: ElementBody,
+    },
 }
 
 impl Markup {
@@ -61,6 +67,7 @@ impl Markup {
             Markup::Match {
                 at_span, arms_span, ..
             } => at_span.join_range(arms_span),
+            Markup::Custom { at_span, .. } => at_span,
         }
     }
 }

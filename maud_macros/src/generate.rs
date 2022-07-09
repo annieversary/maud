@@ -62,6 +62,9 @@ impl Generator {
                     self.block(body, build);
                 }
             }
+            Markup::Custom {
+                name, expr, body, ..
+            } => self.custom_element(name, expr, body, build),
             Markup::Match {
                 head,
                 arms,
@@ -106,6 +109,40 @@ impl Generator {
         build.push_tokens(quote!(maud::Render::render_to(&#expr, &mut #output_ident);));
     }
 
+    fn custom_element(
+        &self,
+        name: TokenStream,
+        expr: TokenStream,
+        body: ElementBody,
+        build: &mut Builder,
+    ) {
+        let output_ident = self.output_ident.clone();
+
+        if let ElementBody::Block { block } = body {
+            let inner = {
+                let mut build = Builder::new(output_ident.clone());
+                Generator::new(output_ident.clone()).markups(block.markups, &mut build);
+                let stmts = build.finish();
+                quote!({
+                    // TODO add something to predict size of this
+                    let mut #output_ident = String::with_capacity(20);
+                    #stmts
+                    maud::PreEscaped(#output_ident)
+                })
+            };
+            build.push_tokens(match expr.clone().into_iter().last() {
+                Some(TokenTree::Punct(p)) if p.as_char() == ',' => {
+                    quote!(maud::Render::render_to(&#name(#expr #inner), &mut #output_ident);)
+                }
+                _ => {
+                    quote!(maud::Render::render_to(&#name(#expr, #inner), &mut #output_ident);)
+                }
+            });
+        } else {
+            build.push_tokens(quote!(maud::Render::render_to(&#name(#expr), &mut #output_ident);));
+        }
+    }
+
     fn element(
         &self,
         name: TokenStream,
@@ -131,7 +168,7 @@ impl Generator {
             if !has_rel {
                 // this is not accurate at all, but i do not give a shit
                 let span = match &body {
-                    ElementBody::Void { semi_span } => semi_span.clone(),
+                    ElementBody::Void { semi_span } => *semi_span,
                     ElementBody::Block { block } => block.outer_span,
                 };
 

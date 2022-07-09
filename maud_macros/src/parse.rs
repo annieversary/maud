@@ -1,6 +1,7 @@
 use peekaboo::*;
 use proc_macro2::{Delimiter, Ident, Literal, Spacing, Span, TokenStream, TokenTree};
 use proc_macro_error::{abort, abort_call_site, emit_error, SpanRange};
+use quote::ToTokens;
 use std::collections::HashMap;
 
 use syn::Lit;
@@ -124,13 +125,7 @@ impl Parser {
                                 abort!(span, "`@let` only works inside a block");
                             }
                             // TODO add components here
-                            other => {
-                                let span = SpanRange {
-                                    first: at_span,
-                                    last: ident.span(),
-                                };
-                                abort!(span, "unknown keyword `@{}`", other);
-                            }
+                            _ => self.custom_component(at_span, keyword),
                         }
                     }
                     _ => {
@@ -374,6 +369,60 @@ impl Parser {
                 head: head.into_iter().collect(),
                 body,
             }],
+        }
+    }
+
+    fn custom_component(&mut self, at_span: Span, name: TokenTree) -> ast::Markup {
+        let at_span = SpanRange::single_span(at_span);
+
+        let group = if let Some(TokenTree::Group(group)) = self.next() {
+            if group.delimiter() == Delimiter::Parenthesis {
+                group
+            } else {
+                abort!(at_span, "expected parentesised group");
+            }
+        } else {
+            abort!(at_span, "expected parentesised group");
+        };
+        let expr = group.stream();
+
+        let body = match self.peek() {
+            Some(TokenTree::Punct(ref punct))
+                if punct.as_char() == ';' || punct.as_char() == '/' =>
+            {
+                // Void element
+                let c = punct.as_char();
+                let semi_span = SpanRange::single_span(punct.span());
+                if c == '/' {
+                    emit_error!(
+                        punct,
+                        "void elements must use `;`, not `/`";
+                        help = "change this to `;`";
+                        help = "see https://github.com/lambda-fairy/maud/pull/315 for details";
+                    );
+                }
+                self.advance();
+                ast::ElementBody::Void { semi_span }
+            }
+            Some(_) => match self.markup() {
+                ast::Markup::Block(block) => ast::ElementBody::Block { block },
+                markup => {
+                    let markup_span = markup.span();
+                    abort!(
+                        markup_span,
+                        "element body must be wrapped in braces";
+                        help = "see https://github.com/lambda-fairy/maud/pull/137 for details"
+                    );
+                }
+            },
+            None => abort_call_site!("expected `;`, found end of macro"),
+        };
+
+        ast::Markup::Custom {
+            at_span,
+            name: name.into_token_stream(),
+            expr,
+            body,
         }
     }
 

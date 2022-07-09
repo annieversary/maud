@@ -229,7 +229,7 @@ impl<T: AsRef<str> + Into<String>> From<PreEscaped<T>> for String {
 
 impl<T: AsRef<str>> AsRef<str> for PreEscaped<T> {
     fn as_ref(&self) -> &str {
-        &self.0.as_ref()
+        self.0.as_ref()
     }
 }
 

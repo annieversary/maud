@@ -56,6 +56,14 @@ fn get_single_or_block_element_attrs(markup: &Markup) -> Vec<&Attr> {
 
             out
         }
+        Markup::Custom {
+            body: ElementBody::Block { block },
+            ..
+        } => block
+            .markups
+            .iter()
+            .flat_map(get_single_or_block_element_attrs)
+            .collect(),
         Markup::Special { segments } => segments
             .iter()
             .flat_map(|s| &s.body.markups)

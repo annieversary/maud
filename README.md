@@ -2,12 +2,67 @@
 
 this is a fork of [maud](https://github.com/lambda-fairy/maud)
 
-it adds an integration with [zephyr](https://github.com/annieversary/zephyr)
+it adds custom components, an integration with [zephyr](https://github.com/annieversary/zephyr)
 and other minor improvements.
 i also removed stuff i don't care about, like the integrations with web frameworks and the docs.
 it no longer supports `no_std`
 
 you should probably use upstream instead
+
+## custom components
+
+a custom component is any function that returns a `Markup` 
+
+if the component takes a `Markup` body as an argument, it has to be the last one:
+
+### with body
+
+if you define a function like:
+
+```rust
+fn my_component(title: &str, children: Markup) -> Markup {
+    html! {
+        p { (title) }
+        div {
+            (children)
+        }
+    }
+}
+```
+
+you can use it like:
+
+```rust
+@my_component("hey") {
+    p { "hello" }
+}
+
+// it's equivalent to:
+(my_component("hey", html! {
+    p { "hello" }
+}))
+```
+
+### without body
+
+a body is not required:
+
+```rust
+fn my_component(title: &str) -> Markup {
+    html! {
+        p { (title) }
+    }
+}
+```
+
+you can use it like:
+
+```rust
+@my_component("hey");
+
+// it's equivalent to:
+(my_component("hey"))
+```
 
 ## zephyr
 

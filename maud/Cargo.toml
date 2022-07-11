@@ -20,7 +20,7 @@ a_rel_attribute = ["maud_macros/a_rel_attribute"]
 [dependencies]
 maud_macros = { version = "0.23.0", path = "../maud_macros" }
 itoa = { version = "0.4.8", default-features = false, features = ["i128"] }
-zephyr = { git = "https://github.com/annieversary/zephyr", rev = "8828250885124b9f33a5c4db8b03654da20caef8", features = ["inventory"], optional = true }
+zephyr = { git = "https://github.com/annieversary/zephyr", rev = "c5301cfe63773ba7d65d6f806196632e3a5ee114", features = ["inventory"], optional = true }
 
 [dev-dependencies]
 trybuild = { version = "1.0.33", features = ["diff"] }
